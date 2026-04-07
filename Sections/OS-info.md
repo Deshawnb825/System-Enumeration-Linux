@@ -20,20 +20,20 @@ Identify the operating system, version, and distribution details to assess syste
 ---
 
 ## Analysis:
-The system is running Ubuntu 24.04 LTS, which is a long-term support release that receives regular security updates.
+The system is running Ubuntu 24.04 LTS, which is actively supported and receives regular security updates.
 
-The codename "noble" determines the repository sources used by the system, ensuring proper package compatibility and updates.
+However, system security depends on patch status rather than OS version alone. At this stage, update status has not yet been verified, meaning the system may still be exposed to known vulnerabilities if patches are missing.
 
-This system is generally secure if properly maintained, but outdated packages can still introduce vulnerabilities.
+Further validation is required to determine whether the system is fully up to date.
 
 ---
 
 ## Security Implications
--The OS version can be used by attackers to identify known vulnerabilities
+-OS fingerprinting allows attackers to map the system to known CVEs
 
--If updates are not applied regularly, the system may become exposed to exploits
+-If patching is inconsistent, publicly known exploits may be applicable
 
--Misconfigured repositories may introduce insecure or outdated packages
+-Attackers may target default services and packages commonly associated with this OS version
 
 ---
 
@@ -46,7 +46,9 @@ To determine if this system is vulnerable:
 
      -Search: Ubuntu 24.04 noble
 
-2. Check for missing updates:
+     -Goal: Identify CVEs affecting this OS version
+
+3. Check for missing updates:
 
      -sudo apt update
    
