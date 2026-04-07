@@ -48,10 +48,12 @@ To determine if this kernel is vulnerable:
   -Search: "Linux kernel 6.17.0"
 
 2. Check distribution-specific vulnerabilities:
+   
   -https://ubuntu.com/security/cves
+  
   -Search: kernel version or related packages
 
-3. Verify patch/updates status:
+4. Verify patch/updates status:
 
   -uname -r
 
