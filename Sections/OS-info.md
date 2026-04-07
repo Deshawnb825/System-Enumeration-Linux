@@ -48,6 +48,6 @@ To determine if this system is vulnerable:
 
 2. Check for missing updates:
 
--sudo apt update && sudo apt list --upgradable
+     -sudo apt update && sudo apt list --upgradable
 
 3. Review outdated packages for potential risk exposure
