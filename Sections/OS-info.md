@@ -49,6 +49,7 @@ To determine if this system is vulnerable:
 2. Check for missing updates:
 
      -sudo apt update
+   
      -sudo apt list --upgradable
 
 4. Review outdated packages for potential risk exposure
