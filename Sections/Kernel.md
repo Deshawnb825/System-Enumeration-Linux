@@ -44,20 +44,21 @@ To determine if this kernel is vulnerable:
 
 1. Check known kernel vulnerabilities:
 
-  -https://nvd.nist.gov/
-  -Search: "Linux kernel 6.17.0"
+   -https://nvd.nist.gov/
 
-2. Check distribution-specific vulnerabilities:
-   
-  -https://ubuntu.com/security/cves
-  
-  -Search: kernel version or related packages
+   -Search: "Linux kernel 6.17.0"
 
-4. Verify patch/updates status:
+3. Check distribution-specific vulnerabilities:
 
-  -uname -r
+   -https://ubuntu.com/security/cves
 
-  -apt list --installed | grep linux-image
+   -Search: kernel version or related packages
+
+5. Verify patch/updates status:
+
+   -uname -r
+
+   -apt list --installed | grep linux-image
 
 Goal: Confirms installed kernel version matched latest patched release
 
