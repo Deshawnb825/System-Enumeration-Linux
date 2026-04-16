@@ -37,7 +37,7 @@ Manual enumeration following a structured threat-modeling approach. For each dom
 
 Enumerate → Contextualize → Threat model → Prioritize by impact
 
-Tools used: hostnamectl, cat /etc/os-release, uptime, ip a, ip r, cat /etc/resolv.conf, resolvectl status, ss -tulnp, ps aux | grep, cat /etc/passwd, cat /etc/group, sudo -l, ls -l
+**Tools used:** hostnamectl, cat /etc/os-release, uptime, ip a, ip r, cat /etc/resolv.conf, resolvectl status, ss -tulnp, ps aux | grep, cat /etc/passwd, cat /etc/group, sudo -l, ls -l
 
 ---
 
@@ -58,11 +58,12 @@ Shows active listening ports and associated services, identifying what is curren
 
 **Why this is critical, not just a misconfiguration:**
 
-'cupsd' runs as **root** (PID 898). The CUPS print system has a documented history of serious vulnerabilities - including remote code execution. CVE-2024-47176, disclosed in late 2024, allowed unauthenticated remote attackers to execute arbitrary commands via 'cups-browsed' on port 631. That exact binary is running on this system right now.
+- 'cupsd' runs as **root** (PID 898). The CUPS print system has a documented history of serious vulnerabilities - including remote code execution. CVE-2024-47176, disclosed in late 2024, allowed unauthenticated remote attackers to execute arbitrary commands via 'cups-browsed' on port 631. That exact binary is running on this system right now.
 
-Even with 'cupsd' bound to loopback, 'cups-browsed' listens for mDNS advertisements on '0.0.0.0:5353' - broadcasting across the entire network segment. Any host on the '10.x.x.0/24' subnet can see this machine is running a print service. That's 254 potential pivot points if any other host on the network is compromised.
 
-The attak chain: network-adjacent attacker → mDNS discovery → cups-browsed exploitation → root shell. All enabled by a service this machine has zero reason to run.
+- Even with 'cupsd' bound to loopback, 'cups-browsed' listens for mDNS advertisements on '0.0.0.0:5353' - broadcasting across the entire network segment. Any host on the '10.x.x.0/24' subnet can see this machine is running a print service. That's 254 potential pivot points if any other host on the network is compromised.
+
+- The attak chain: network-adjacent attacker → mDNS discovery → cups-browsed exploitation → root shell. All enabled by a service this machine has zero reason to run.
 
 **Remediation:**
 - sudo systemctl disable --now cups cups-browsed avahi-daemon
@@ -77,11 +78,11 @@ Reveals user privilege escalation rights and directory permissions, highlighting
 
 ![Sudo](Evidence/Sudo_perm.jpeg)
 
-'(ALL : ALL) ALL' is the most permissive sudo policy possible. It means 'deshawn-test' can run any command, as any user, on any host - with only a password standing between a normal session and full root access.
+- '(ALL : ALL) ALL' is the most permissive sudo policy possible. It means 'deshawn-test' can run any command, as any user, on any host - with only a password standing between a normal session and full root access.
 
-**The threat model her is specific:** this isn't a theoretical risk. 'deshawn-test' is the only human account on the system besides root. If an attacker gains a foothold through any vulnerability - a phishing link opened in the browser, a malicious package, a vulnerabile web app - they land as 'deshawn-test'. From there, 'sudo su' or 'sudo bash' completes the privilege escalation. No exploit required. One password prompt.
+- **The threat model her is specific:** this isn't a theoretical risk. 'deshawn-test' is the only human account on the system besides root. If an attacker gains a foothold through any vulnerability - a phishing link opened in the browser, a malicious package, a vulnerabile web app - they land as 'deshawn-test'. From there, 'sudo su' or 'sudo bash' completes the privilege escalation. No exploit required. One password prompt.
 
-The principle of least privilege exists percisely to prevent this. A properly scoped sudo policy would allow only the specific commands this user legitimately needs - not a blank check.
+- The principle of least privilege exists percisely to prevent this. A properly scoped sudo policy would allow only the specific commands this user legitimately needs - not a blank check.
 
 **Remediation:**
 - sudo visudo
@@ -98,11 +99,11 @@ Shows file and directory permission settings, including ownership and access lev
 
 ![Directory](Evidence/Dir_permissions.jpeg)
 
-A directory named 'knowledge-base' exists in the home directory and contains notes about this system - the exact recon that was just performed. The permissions (drwxrwxr-x) allows any process running under the 'deshawn-test' group to modify its contents.
+- A directory named 'knowledge-base' exists in the home directory and contains notes about this system - the exact recon that was just performed. The permissions (drwxrwxr-x) allows any process running under the 'deshawn-test' group to modify its contents.
 
-**Why this matters operationally:** Reconnaissance is the most time-consuming phase of an attack. An attacker who gains access to this account doesn't need to enumerate the system - the work is already done and documented. They have the network layout, the open ports, the user list, the privilege paths, and the sensitive file locations handed to them on arrival.
+- **Why this matters operationally:** Reconnaissance is the most time-consuming phase of an attack. An attacker who gains access to this account doesn't need to enumerate the system - the work is already done and documented. They have the network layout, the open ports, the user list, the privilege paths, and the sensitive file locations handed to them on arrival.
 
-This is an operational security failure independent of any technical vulnerability. Sensitive documentation about a system should never live on the system.
+- This is an operational security failure independent of any technical vulnerability. Sensitive documentation about a system should never live on the system.
 
 **Remediation:**
 - Tighten permissions immediately
@@ -120,9 +121,9 @@ Shows active listening ports and associated services, identifying what is curren
 
 ![ports](Evidence/Ports.jpeg)
 
-The Avahi mDNS daemon is advertising service discovery across the entire network segment. Any host on the subnet can query for and discover services running on this machine. In an isolated lab this is low consequence, but it represents unnecessary network visibility.
+- The Avahi mDNS daemon is advertising service discovery across the entire network segment. Any host on the subnet can query for and discover services running on this machine. In an isolated lab this is low consequence, but it represents unnecessary network visibility.
 
-In a real environment, mDNS advertisements have been used as an initial reconnaissance vector - an attacker who lands anywhere on the network can passively map service exposure without ever touching the target machine. 
+- In a real environment, mDNS advertisements have been used as an initial reconnaissance vector - an attacker who lands anywhere on the network can passively map service exposure without ever touching the target machine. 
 
 **Remediation:**
 - Disable 'avahi-daemon' (covered in Finding 1 remediation above).
@@ -137,7 +138,7 @@ Shows file and directory permission settings, including ownership and access lev
 
 ![Directory](Evidence/Dir_permissions.jpeg)
 
-The group write bit ('w' in position 5) means any process running as the 'deshawn-test' group can create, modify, or delete files inside this directory. In the context of a compromise, this enables an attacker to tamper with or plant files in a directory that appears to be a trusted personal notes store.
+- The group write bit ('w' in position 5) means any process running as the 'deshawn-test' group can create, modify, or delete files inside this directory. In the context of a compromise, this enables an attacker to tamper with or plant files in a directory that appears to be a trusted personal notes store.
 
 **Remediation:**
 - chmod 750 ~/Knowledge-base
