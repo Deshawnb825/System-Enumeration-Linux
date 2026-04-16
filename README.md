@@ -17,7 +17,7 @@ I performed a full manual security assessment of a Linux VM across six domains: 
 
 | Severity | Finding | Business Impact |
 | --- | --- | --- |
-| 🔴 Critical | 'cupsd' (CUPS) running as root with no business justification | Any CUPS exploit on this VM = instant root shell |
+| 🔴 Critical | 'cupsd' (CUPS) running as root with no business justification | Any CUPS exploit on this VM = increased risk of system compromise |
 | 🔴 Critical | Unrestricted 'sudo' - '(ALL : ALL) ALL' | One compromised password = full system takeover |
 | 🔴 Critical | Sensitive recon notes stored on the assessed target itself | Attacker gains access = reconnaissance already done for them |
 
@@ -53,18 +53,20 @@ Filters for key services (e.g., DNS and printing), confirming whether critical p
 
 #### Open ports
 Shows active listening ports and associated services, identifying what is currently exposed on the system.
+- **Not all open ports represent equal risk. Services bound to looback (127.0.0.1) are only accessible locally, while those bound to internal interfaces may be reachable by other hosts on the network. Exposure level must be considered when evaluating real attack surface.**
 
 ![ports](Evidence/Ports.jpeg)
 
 **Why this is critical, not just a misconfiguration:**
 
-- 'cupsd' runs as **root** (PID 898). The CUPS print system has a documented history of serious vulnerabilities - including remote code execution. CVE-2024-47176, disclosed in late 2024, allowed unauthenticated remote attackers to execute arbitrary commands via 'cups-browsed' on port 631. That exact binary is running on this system right now.
+- The CUPS print system has a history of serious vulnerabilities, including remote code execution in certain components (e.g., cups-browsed). Exploitation depends on service exposure and specific vulnerability conditions.
 
+- While this service may only be accessible locally or within the internal network, its presence still increases attack surface. In real-world environments, misconfiguration or expanded exposure could make it reachable.
 
 - Even with 'cupsd' bound to loopback, 'cups-browsed' listens for mDNS advertisements on '0.0.0.0:5353' - broadcasting across the entire network segment. Any host on the '10.x.x.0/24' subnet can see this machine is running a print service. That's 254 potential pivot points if any other host on the network is compromised.
 
-- The attak chain: network-adjacent attacker → mDNS discovery → cups-browsed exploitation → root shell. All enabled by a service this machine has zero reason to run.
-
+- The attak chain: initial foothold (e.g., compromised host on the same subnet) → mDNS based servie discovery → identification of CUPS service → Exploitation → potential privilege escalation
+- 
 **Remediation:**
 - sudo systemctl disable --now cups cups-browsed avahi-daemon
 
@@ -101,7 +103,7 @@ Shows file and directory permission settings, including ownership and access lev
 
 - A directory named 'knowledge-base' exists in the home directory and contains notes about this system - the exact recon that was just performed. The permissions (drwxrwxr-x) allows any process running under the 'deshawn-test' group to modify its contents.
 
-- **Why this matters operationally:** Reconnaissance is the most time-consuming phase of an attack. An attacker who gains access to this account doesn't need to enumerate the system - the work is already done and documented. They have the network layout, the open ports, the user list, the privilege paths, and the sensitive file locations handed to them on arrival.
+- Reconnaissance is the most time-consuming phase of an attack. This effectively removes that phase, significantly redusing attacker effort and accelerating potential compromise. An attacker gaining access to this data inherits system knowledge that would otherwise require active probing, reducing noise and likelihood of detection.
 
 - This is an operational security failure independent of any technical vulnerability. Sensitive documentation about a system should never live on the system.
 
@@ -121,7 +123,7 @@ Shows active listening ports and associated services, identifying what is curren
 
 ![ports](Evidence/Ports.jpeg)
 
-- The Avahi mDNS daemon is advertising service discovery across the entire network segment. Any host on the subnet can query for and discover services running on this machine. In an isolated lab this is low consequence, but it represents unnecessary network visibility.
+- The Avahi mDNS daemon is advertising multicast-based service discovery within the local subnet. This does not cross VLAN boundaries without additional configuration, but increases visibility to any host within the same broadcast domain.
 
 - In a real environment, mDNS advertisements have been used as an initial reconnaissance vector - an attacker who lands anywhere on the network can passively map service exposure without ever touching the target machine. 
 
@@ -216,7 +218,7 @@ Displays system groups and associated users, helping identify privilege levels a
 
 | Priority | Action | Command | Impact |
 | --- | --- | --- | --- |
-| 1 - Immediate | Disable CUPS + Avahi | 'sudo systemctl disable --now cups cups-browsed avahi-daemon' | Eliminates root-level attack surface and network visibility |
+| 1 - Immediate | Disable CUPS + Avahi | 'sudo systemctl disable --now cups cups-browsed avahi-daemon' | Reduces potential root-level attack surface by removing unnecessary privileged services |
 | 2 - Immediate | Scope sudo policy | 'sudo visudo' → replace 'ALL' with specific commands | Breaks the one-step privilege escalation path |
 | 3 - Immediate | Move Knowledge-base off target | Manual - relocate to encrypted vault or separate host | Eliminates recon intelligence exposure |
 | 4 - Short-term | Fix directory permissions | 'chmod 750 ~/Knowledge-base' | Removes unauthorized write access |
@@ -229,3 +231,5 @@ Displays system groups and associated users, helping identify privilege levels a
 - Security isn't only about finding vulnerabilities in software. It's about challenging whether each component of a system *earns its place*. Every unnecessary service, every overpermissioned account, every piece of sensitive data in the wrong location is a liability - regardles of whether a CVE has been published for it.
 
 - The CUPS finding is a direct example of why this matters: CVE-2024-47176 was disclosed in September 2024 specifically targeting 'cups-browsed'. A system running this service not because it needs to, but because it was never explicitly disabled, is the exact scenario that vulnerability was written for.
+
+- Security is not just about identifying vulnerabilities, but validating whether each component meaningfully contributes to system function versus increasing risk.
