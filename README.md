@@ -1,51 +1,64 @@
 # System Recon - Linux Enumeration for Security Assessment
 
 ## Project Objective
-The goal of this exercise was to perform system reconnaissance, the process of gathering key information about a Linux system to understand its configuration and identify potential security risks. This is a foundational skill in both system administration and cybersecurity (blue team and red team alike).
+Perform a structured **System Reconnaissance** on my Linux VM to understand what information is exposed, what it means, and whether it poses a security risk. This mirrors what both an attacker and a defender would do as a first step.
 
-**Information targeted:**
-- System identity (hostname, OS, kernel)
-- Active users and their permissions
-- Security groups and access controls
-- Open ports and listening services
-- Running processes and services
-- Installed packages and updates
+**Six areas investigated:**
+
+| # | Category | What I Was Looking For |
+| --- | --- | --- |
+| 1 | System Identity | OS, kernel, hostname, uptime |
+| 2 | Networking | Interfaces, IPs, routing, DNS |
+| 3 | Open Ports & Services | What's listening and why |
+| 4 | Processes | What's actively running and who owns it |
+| 5 | Users & Groups | Who can log in, what can they do |
+| 6 | File Permissions | What files are accessible and how |
 
 ---
 
 ## Thought Process
 
-I started by looking up commands and running them, but quickly realized I had no context for what the output *meant*. I didn't understand the purpose, the threat implications, or the importance of what I was seeing. So I slowed down and focused on understanding each category before moving on.
+My first instinct was to just run commands. That fell apart immediately - I had no context for what the ouput *meant*, what te threat was, or why any of it mattered.
 
-The learning progression was:
-1. **Identity → Networking → Processes →Users** (structured top-down)
-2. Run commands → understand output → document what it reveals
-3. Ask: *What would an attacker learn from this? What would a defender watch for?*
+So I slowed down and used this loop for every section:
+
+1. Run the command
+2. Understand what the output is actually telling me
+3. Ask - what would an attacker do with this? What should a defender watch for?
+
+Structure I followed: Identity > Networking > Ports/Services > Processes > Users > Files
 
 ---
 
 ## Part 1: System Identity
-**Purpose:** Understand what machine you're on - OS, kernel version, name , and uptime.
+**Purpose:** Establish what machine this is, what it's running, and how long it's been up.
 
 | Command | What It Does | Why It Matters |
 | ---| --- | --- |
 | **hostnamectl** | Full system summary (OS, kernel, hostname) | Reveals OS version, kernel and machine identity |
 | **hostname** | Quick machine name only | Fast identification |
+| cat /etc/os-release | Detailed OS metadata | Exact version, codename, distro family |
 | **uptime** | How long the system has been running | Long uptime = possibly unpatched; recent reboot = possible incident response or compromise |
 
-**Key concepts learned:**
-- **Hostname** = the name of the system
-- **Kernel** = communicates directly with hardware; has the highest privilege level on the system
-- **Codename** = determines what package versions are available (e.g., 'jammy', 'bookworm')
-- **Uptime** = tells you how long since the last reboot - critical for patch assessment
+**Commands run & output:**
+Pictures:
+
+**What this tells me:**
+
+| Field | Value | Significance |
+| --- | --- | --- |
+| OS | Ubuntu 24.04.4 LTS | Long-term support release - tells you exact patch window |
+| Codename | noble | Determines available package versions |
+| Uptime | 54 minutes | Recently booted - patches likely current |
+| Load avg | 0.50 / 0.53 / 0.24 | System is idle, no unusual CPU pressure |
 
 ### Security Relevance
-A system with very long uptime liekly hasn't applied kernel patches. Kernel version info can reveal known CVEs. OS/codename can tell an attacker what exploits to target.
+OS version + codename immediately narrows the CVE search space. An attacker knows exactly what known vulnerabilities to check for Ubuntu 24.04. Noble. The hostname also reveals this is a QUME/ KVM virtual machine - leaking the virtualization platform
 
 ---
 
 ## Part 2: Networking
-**Purpose:** Understand how the system is connected - interfaces, IPs, routing, open ports, DNS.
+**Purpose:** Map out every interface, IP, route, and DNS path on the system.
 
 | Command | What It Does | Why It Matters | 
 | --- | --- | --- |
@@ -53,7 +66,29 @@ A system with very long uptime liekly hasn't applied kernel patches. Kernel vers
 | **ip r** | Shows the routing table | Shows how traffic flows in/out |
 | **/etc/resolv.conf** | What DNS server is in use | Shows upstream DNS configuration |
 | **resolvectl status** | Upstream DNS server details | Reveals stub resolver + upstream chain |
-| **ss -tulnp** | Lists listening ports (sockets) | Reveals what services are exposed |
+
+**Commands run & output:**
+Pictures
+
+**Network layout:**
+
+| Component | Value | Notes |
+| --- | --- | --- |
+| Loopback (lo) | 127.0.0.1 | Internet only - not reachable externally |
+| Primary interface | ens18("enp0s18") | Internet-facing NIC |
+| System IP | 10.x.x.x | Internal network address |
+| Subnet | /24 > 255.255.255.0 | 254 usable hosts on this segment |
+| Gateway | 10.x.x.1 | pfSense router |
+
+DNS
+
+**DNS resolution chain:**
+
+| Step | Address | Role |
+| --- | --- | --- |
+| 1 - App sends query | 127.0.0.53 | Local stub resolver | 
+| 2 - Stub forwards to | 10.x.x.1 | pfSense router - upstream DNS |
+| 3 - Router resolves | External DNS | Final answer returned back up the chain |
 
 **Key 'ss -tulnp' output breakdown:**
 
@@ -65,7 +100,7 @@ A system with very long uptime liekly hasn't applied kernel patches. Kernel vers
 | **Netid** | Protocol used (TCP or UDP) |
 
 ### Security Relevance
-Open ports = attack surface. A port in 'LISTEN' state means something is accepting connections. Unexpected open ports can indicate malware, backdoors, or misconfigured services. DNS config can reveal if DNS is being intercepted or spoofed.
+The DNS domain leaks internal lab naming conventions. DNS config could also show if DNSSEC is unsupported - meaning DNS responses are not cryptographically verified, which leaves it open to DNS spoofing if the network were compromised.
 
 ---
 
