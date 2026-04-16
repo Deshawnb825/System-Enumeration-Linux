@@ -1,6 +1,6 @@
-# System Recon - Linux Enumeration for Security Assessment
+# 🔍System Recon - Linux Enumeration for Security Assessment
 
-## Project Objective
+## 🎯Project Objective
 Perform a structured **System Reconnaissance** on my Linux VM to understand what information is exposed, what it means, and whether it poses a security risk. This mirrors what both an attacker and a defender would do as a first step.
 
 **Six areas investigated:**
@@ -16,7 +16,7 @@ Perform a structured **System Reconnaissance** on my Linux VM to understand what
 
 ---
 
-## Thought Process
+## 🧠Thought Process
 
 My first instinct was to just run commands. That fell apart immediately - I had no context for what the ouput *meant*, what te threat was, or why any of it mattered.
 
@@ -30,7 +30,7 @@ Structure I followed: Identity > Networking > Ports/Services > Processes > Users
 
 ---
 
-## Part 1: System Identity
+## 🖥️Part 1: System Identity
 **Purpose:** Establish what machine this is, what it's running, and how long it's been up.
 
 | Command | What It Does | Why It Matters |
@@ -52,12 +52,12 @@ Pictures:
 | Uptime | 54 minutes | Recently booted - patches likely current |
 | Load avg | 0.50 / 0.53 / 0.24 | System is idle, no unusual CPU pressure |
 
-### Security Relevance
+### ⚠️Security Relevance
 OS version + codename immediately narrows the CVE search space. An attacker knows exactly what known vulnerabilities to check for Ubuntu 24.04. Noble. The hostname also reveals this is a QUME/ KVM virtual machine - leaking the virtualization platform
 
 ---
 
-## Part 2: Networking
+## 🌐Part 2: Networking
 **Purpose:** Map out every interface, IP, route, and DNS path on the system.
 
 | Command | What It Does | Why It Matters | 
@@ -90,12 +90,12 @@ DNS
 | 2 - Stub forwards to | 10.x.x.1 | pfSense router - upstream DNS |
 | 3 - Router resolves | External DNS | Final answer returned back up the chain |
 
-### Security Relevance
+### ⚠️Security Relevance
 The DNS domain leaks internal lab naming conventions. DNS config could also show if DNSSEC is unsupported - meaning DNS responses are not cryptographically verified, which leaves it open to DNS spoofing if the network were compromised.
 
 ---
 
-## Part 3: Open Ports & Services
+## 🔌Part 3: Open Ports & Services
 **Purpose:** Find what's listening on the network and assess whether it should be.
 
 | Command | What It Does | Why It Matters |
@@ -123,10 +123,10 @@ Pictures
 | 5353 | UDP | mDNS / printer discovery | All interfaces 0.0.0.0 | Medium - broadcasts on network | 
 | 55444 | UDP | Unknown/ephemeral | All interfaces | Worth investigating
 
-### Security Relevance
+### ⚠️Security Relevance
 cupsd (CUPS) is running on a VM that has no printer. Port 631 being open and mDNS broadcasting printer discovery (5353) on all interfaces is an unnecessary attack surface. This is the highest-risk finding in the entire recon - a service with no business reason to exist is running and advertising itself on the network.
 
-## Part 4: Processes & Services
+## ⚙️Part 4: Processes & Services
 **Purpose:** See what's actually running, who owns it, and confirm findings from the ports section.
 
 | Command | What It Does | Why It Matters |
@@ -161,12 +161,12 @@ Pictures
 - systemd-resolved is owned by systemd+ service user - normal
 - All kernel threads ([kworker], [rcu_*], etc) are expected - these are normal Linux internals
 
-### Security Relevance
+### ⚠️Security Relevance
 cupsd running as root means any exploits in the CUPS service would immediately grant root-level access. Combined with the fact this VM has no printers, this process has no reason to exist here.
 
 ---
 
-## Part 5: Users & Permissions
+## 👤Part 5: Users & Permissions
 **Purpose:** Enumerate every account, map group membership, and find privilege escalation paths.
 
 | Command | What It Does | Why It Matters |
@@ -190,9 +190,9 @@ Picture (users)
 | Accoutnt name | Stored in /etc/shadow, not here | How the system identifies this user | Primary group ID | Display name / description | Landing directory on login | Shell launched on login - determines login capability |
 
 **Shell = login capability:**
-- /bin/bash → interactive login allowed
-- /usr/sbin/nologin → service account, blocked
-- /bin/false → same, blocked
+- /bin/bash → interactive login allowed✅
+- /usr/sbin/nologin → service account, blocked🔒
+- /bin/false → same, blocked🔒
 
 **Real login-capable accounts found:** only *root* and *deshawn-test* - everything else correctly uses /nologin.
 
@@ -202,8 +202,8 @@ Pciture (groups)
 **Key security groups:**
 | Group | Access Level |
 | --- | --- |
-| **sudo** | Root access |
-| **adm** | Log access |
+| **sudo** | ⚠️Root access |
+| **adm** | ⚠️Log access |
 | **docker** | Effectively root on some systems | 
 | **wheel** | Root (on some systems) |
 
@@ -221,27 +221,27 @@ Pictures (directory permissions)
 | --- | --- | --- |
 | Desktop | drwxr-xr-x | Others can read/enter - low risk |
 | Downloads | drwxr-xr-x | Others can read/enter - low risk |
-| Knowledge-base | drwxrwxr-x | Group has write access - anyone in deshawn-test group can modify |
-| snap | drwx------ | Private - only owner can access |
+| Knowledge-base | drwxrwxr-x | ⚠️Group has write access - anyone in deshawn-test group can modify |
+| snap | drwx------ | ✅Private - only owner can access |
 
-### Security Relevance
+### ⚠️Security Relevance
 1. (ALL : ALL) ALL in sudo is the most permissive possible config. Compromise this account = instant root, no restrictions.
 2. ~/Knowledge-base has group write permissions (rwxrwxr-x) - files inside could be modified by any process running as the deshawn-test group.
 
 ---
 
-## Security Risk Summary
+## 🛡️Security Risk Summary
 | Finding | Risk | Recommendation |
 | --- | --- | --- |
-| cupsd running as root on a VM | High | sudo systemctl disable --now cups cups-browsed |
-| mDNS broadcasting on all interfaces (5353) | High | Disable avahi-daemon if not needed |
-| (ALL : ALL) ALL sudo | High | Scope sudo rules to only needed commands |
-| ~/Knowledge-base has group write permissions | Medium | chmod 750 ~/Knowledge-base |
-| Service accounts all use /nologin | Good | No action needed |
-| Only 2 human login accounts | Good | Minimal attack surface |
+| cupsd running as root on a VM | 🔴High | sudo systemctl disable --now cups cups-browsed |
+| mDNS broadcasting on all interfaces (5353) | 🔴High | Disable avahi-daemon if not needed |
+| (ALL : ALL) ALL sudo | 🔴High | Scope sudo rules to only needed commands |
+| ~/Knowledge-base has group write permissions | 🟡Medium | chmod 750 ~/Knowledge-base |
+| Service accounts all use /nologin | ✅Good | No action needed |
+| Only 2 human login accounts | ✅Good | Minimal attack surface |
 
 ---
-## Remediation Steps:
+## 🛠️Remediation Steps:
 
 ### 1. Disable the CUPS print service entirely
 - sudo systemctl disable --now cups cups-browsed
@@ -257,7 +257,7 @@ Pictures (directory permissions)
 - Replace "(ALL : ALL) ALL" with specific allowed commands
 
 
-## What I Learned
+## 📚What I Learned
 > **"Running commands without understanding the output is useless - context is everything."**
 
 1. The most dangerous finding wasn't a user or password - it was cupsd: a service with zero reason to exist on this VM, running as root, advertising itself on the network
