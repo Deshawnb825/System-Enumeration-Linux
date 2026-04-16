@@ -90,6 +90,18 @@ DNS
 | 2 - Stub forwards to | 10.x.x.1 | pfSense router - upstream DNS |
 | 3 - Router resolves | External DNS | Final answer returned back up the chain |
 
+### Security Relevance
+The DNS domain leaks internal lab naming conventions. DNS config could also show if DNSSEC is unsupported - meaning DNS responses are not cryptographically verified, which leaves it open to DNS spoofing if the network were compromised.
+
+---
+
+## Part 3: Open Ports & Services
+**Purpose:** Find what's listening on the network and assess whether it should be.
+
+| Command | What It Does | Why It Matters |
+| --- | --- | --- |
+| **ss -tulnp** | Lists all listening sockets | Shows every open port and which process owns it |
+
 **Key 'ss -tulnp' output breakdown:**
 
 | Field | Meaning |
@@ -99,13 +111,23 @@ DNS
 | **Port** | Which service it is |
 | **Netid** | Protocol used (TCP or UDP) |
 
+**Command run & output:**
+Pictures
+
+**Breaking down what's exposed:**
+
+| Port | Protocol | Service | Exposure | Risk |
+| --- | --- | --- | --- | --- |
+| 53 (x2) | UDP + TCP | systemd-resolved (DNS) | Loopback only | Low - Internal DNS stub |
+| 631 | TCP | cupsd (CUPS printer) | Loopback + IPv6 localhost | Medium - unnecessary on a VM |
+| 5353 | UDP | mDNS / printer discovery | All interfaces 0.0.0.0 | Medium - broadcasts on network | 
+| 55444 | UDP | Unknown/ephemeral | All interfaces | Worth investigating
+
 ### Security Relevance
-The DNS domain leaks internal lab naming conventions. DNS config could also show if DNSSEC is unsupported - meaning DNS responses are not cryptographically verified, which leaves it open to DNS spoofing if the network were compromised.
+cupsd (CUPS) is running on a VM that has no printer. Port 631 being open and mDNS broadcasting printer discovery (5353) on all interfaces is an unnecessary attack surface. This is the highest-risk finding in the entire recon - a service with no business reason to exist is running and advertising itself on the network.
 
----
-
-## Part 3: Processes & Services
-**Purpose:** See what's actively running on the system, who's running it, and how it's managed.
+## Part 4: Processes & Services
+**Purpose:** See what's actually running, who owns it, and confirm findings from the ports section.
 
 | Command | What It Does | Why It Matters |
 | --- | --- | --- |
@@ -121,21 +143,31 @@ The DNS domain leaks internal lab naming conventions. DNS config could also show
 - '-E' - extend patterns (OR conditions, more flexible matching)
 - '-v' - invert match (exclude results)
 
+**Commands run & output:**
+Pictures
+
 **Process States:**
 | State | Meaning |
 | --- | --- |
-| 'S' | Sleeping |
-| 'R' | Running |
-| 'Z' | Zombie (dead but not cleaned up) |
-| 'Ss' | System process |
+| 'S' | Sleeping - waiting for input/event |
+| 'R' | Running - actively using CPU |
+| 'I' | Idle kernel thread |
+| 'Ss' | Session leader, sleeping |
+| 'R+' | Running in foreground |
+
+**Key observations:**
+- cupsd is owned by root - the print daemon runs with full system privilege
+- cups-browsed (network printer discovery) runs as its own service user
+- systemd-resolved is owned by systemd+ service user - normal
+- All kernel threads ([kworker], [rcu_*], etc) are expected - these are normal Linux internals
 
 ### Security Relevance
-Malware often hides as a background process. Zombie processes can indicate crashed services. Processes running as 'root' that shouldn't  be are a **red flag**. Comparing **expected services** vs.  **what's running** helps detect intrusions.
+cupsd running as root means any exploits in the CUPS service would immediately grant root-level access. Combined with the fact this VM has no printers, this process has no reason to exist here.
 
 ---
 
-## Part 4: Users & Permissions
-**Purpose:** Understand who exists on the system, what groups they belong to, and what they can do.
+## Part 5: Users & Permissions
+**Purpose:** Enumerate every account, map group membership, and find privilege escalation paths.
 
 | Command | What It Does | Why It Matters |
 | --- | --- | --- |
@@ -147,14 +179,25 @@ Malware often hides as a background process. Zombie processes can indicate crash
 | **ls -l** | What files can be accessed | Shows file permissions |
 | **sudo -l** | Commands you can run as root | Reveals privilege escalation paths |
 
+**Commands run & output:**
+Picture (users)
+
 **'/etc/passwd' entry breakdown:**
 
-| root | x | 0 | 0 | root | /root | /bin/bash |
+| deshawn-test: | x: | 1000: | 1000: | Deshawn_test: | /home/deshawn-test: | /bin/bash |
 | --- | --- | --- | --- | --- | --- | --- |
 | **user** | **pass** | **UID** | **GID** | **comment** | **homedir** | **shell** |
+| Accoutnt name | Stored in /etc/shadow, not here | How the system identifies this user | Primary group ID | Display name / description | Landing directory on login | Shell launched on login - determines login capability |
 
--'/bin/bash' = can log in
--'/usr/sbin/nologin' = **cannot** log in (service account)
+**Shell = login capability:**
+- /bin/bash → interactive login allowed
+- /usr/sbin/nologin → service account, blocked
+- /bin/false → same, blocked
+
+**Real login-capable accounts found:** only *root* and *deshawn-test* - everything else correctly uses /nologin.
+
+**Commands run & output:**
+Pciture (groups)
 
 **Key security groups:**
 | Group | Access Level |
@@ -164,37 +207,60 @@ Malware often hides as a background process. Zombie processes can indicate crash
 | **docker** | Effectively root on some systems | 
 | **wheel** | Root (on some systems) |
 
-**Findings from the exercise:**
+**Commands run & output:**
+Picture (sudo access)
 
-- Most users wer **service accounts** (not real humans)
-- Only **2 real users**: 'root and 'deshaun-test'
-- 'deshaun-test' has **privilege escalation** via 'sudo' - can get root access with a password
-- Sensitive files: '/etc/shadow', '/etc/passwd', '/etc/sudoers', '/etc/group'
+sudo -l **result**: (ALL : ALL) ALL - this means deshawn-test can run any command as any user with no restrictions. Most permissive sudo config possible.
+
+**Commands run & output:**
+Pictures (directory permissions)
+
+**Home directory permissions breakdown:**
+
+| Directory | Permissions | Risk |
+| --- | --- | --- |
+| Desktop | drwxr-xr-x | Others can read/enter - low risk |
+| Downloads | drwxr-xr-x | Others can read/enter - low risk |
+| Knowledge-base | drwxrwxr-x | Group has write access - anyone in deshawn-test group can modify |
+| snap | drwx------ | Private - only owner can access |
 
 ### Security Relevance
-- Accounts with 'sudo' access are high-value targets
-- Service accounts that can log in ('/bin/bash') are a risk - they should use '/nologin'
-- 'docker' group = essentially root - a major privilege escalation vector
-- '/etc/shadow' stores hashed passwords - if readable, passwords can be cracked offline
-- Unexpected users = possible persistence mechanism after a breach
+1. (ALL : ALL) ALL in sudo is the most permissive possible config. Compromise this account = instant root, no restrictions.
+2. ~/Knowledge-base has group write permissions (rwxrwxr-x) - files inside could be modified by any process running as the deshawn-test group.
 
 ---
 
-## Overall Security Risk Summary
-| Category | Risk | Notes |
+## Security Risk Summary
+| Finding | Risk | Recommendation |
 | --- | --- | --- |
-| Kernel version exposed | Medium | Can be matched to known CVEs |
-| Long uptime | Medium | May indicate unpatched system |
-| Open ports (ss -tulnp) | High | 'deshaun-test' can escalate to root |
-| docker group membership | Critical | Equivalent to root access |
-| Readable /etc/passwd | Low-medium | Usernames enumerable; shadow files is the real risk |
-| Processes running as root | Medium-High | Any compromise = full system access |
-| Service accounts with login shells | Medium | Unnecessary login capability is a risk |
+| cupsd running as root on a VM | High | sudo systemctl disable --now cups cups-browsed |
+| mDNS broadcasting on all interfaces (5353) | High | Disable avahi-daemon if not needed |
+| (ALL : ALL) ALL sudo | High | Scope sudo rules to only needed commands |
+| ~/Knowledge-base has group write permissions | Medium | chmod 750 ~/Knowledge-base |
+| Service accounts all use /nologin | Good | No action needed |
+| Only 2 human login accounts | Good | Minimal attack surface |
 
 ---
+## Remediation Steps:
+
+### 1. Disable the CUPS print service entirely
+- sudo systemctl disable --now cups cups-browsed
+### 2. Disable mDNS printer broadcasting
+- sudo systemctl disable --now avahi-daemon
+### 3. Tighten Knowledge-base permissions (remove group write)
+- chmod 750 ~/Knowledge-base
+### 4. Verify /etc/shadow is only root-readable
+- ls -l /etc/shadow
+- SHould show: -rw-r----- root shadow
+### 5. Audit and scope sudo rules (edit with visudo)
+- sudo visudo
+- Replace "(ALL : ALL) ALL" with specific allowed commands
+
 
 ## What I Learned
-1. You can *run* recon commands without understanding them - but that's useless without context
-2. Every piece of system info has a **threat model**: who would want it, and what would they do with it?
-3. The most dangerous things on a system are often obvious - a misconfigured group membership or an old kernel can be more dangerous than anything visible
-4. Recon is the **first step** in both attack and defense - knowing your own system's exposure is essential 
+> **"Running commands without understanding the output is useless - context is everything."**
+
+1. The most dangerous finding wasn't a user or password - it was cupsd: a service with zero reason to exist on this VM, running as root, advertising itself on the network
+2. My own ~/Knowledge-base is a liability. Storing recon notes on the target machine means an attacker who gains access skips the reconnaissance phase entirely - I've done it for them
+3. (ALL : ALL) ALL in sudo is red flag even for personal machines. It's a one-password path to full root
+4. Recon is the first step in both offense and defense. Learning to read your own system the way an attacker would is one of the most practical security skills you can build
