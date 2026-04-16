@@ -40,8 +40,21 @@ Structure I followed: Identity > Networking > Ports/Services > Processes > Users
 | cat /etc/os-release | Detailed OS metadata | Exact version, codename, distro family |
 | **uptime** | How long the system has been running | Long uptime = possibly unpatched; recent reboot = possible incident response or compromise |
 
-**Commands run & output:**
-Pictures:
+### **Commands run & output:**
+#### 1. Full system summary
+Quick snapshot of basic system information using Linux commands, including OS version, kernel, hostname, and virtualization details.
+
+![Full system summary](Evidence/hostnamectl.jpeg)
+
+#### 2. OS Version details
+Displays operating system information, including version, release name, and distribution details.
+
+![OS Version](Evidence/OS_version.jpeg)
+
+#### 3. System uptime
+Displays current system uptime and load averages to give a high-level view of system activity and performance.
+
+![uptime](Evidence/uptime.jpeg)
 
 **What this tells me:**
 
@@ -67,8 +80,16 @@ OS version + codename immediately narrows the CVE search space. An attacker know
 | **/etc/resolv.conf** | What DNS server is in use | Shows upstream DNS configuration |
 | **resolvectl status** | Upstream DNS server details | Reveals stub resolver + upstream chain |
 
-**Commands run & output:**
-Pictures
+### **Commands run & output:**
+#### 1. Interfaces / IP Overview
+Shows active network interfaces, including loopback and primary NIC, with assigned IP addresses and interface states.
+
+![ip a](Evidence/ip_a.jpeg)
+
+#### 2. Routing table
+Displays the system's routing configuration, highlighting the default gateway and how outbound traffic is directed
+
+![Routing table](Evidence/ip_r.jpeg)
 
 **Network layout:**
 
@@ -81,6 +102,17 @@ Pictures
 | Gateway | 10.x.x.1 | pfSense router |
 
 DNS
+
+### **Commands run & output:**
+#### 1. Local Stub Resolver
+Shows how the system resolves domain names, including the local DNS stub resolver and configured nameserver
+
+![DNS stub](Evidence/DNS_stub.jpeg)
+
+#### 2. Upstream DNS
+Displays the active DNS servers and resolver configuration, revealing how DNS queries are forwarded upstream.
+
+![Upstream DNS](Evidence/Upstream_DNS.jpeg)
 
 **DNS resolution chain:**
 
@@ -111,8 +143,11 @@ The DNS domain leaks internal lab naming conventions. DNS config could also show
 | **Port** | Which service it is |
 | **Netid** | Protocol used (TCP or UDP) |
 
-**Command run & output:**
-Pictures
+### **Command run & output:**
+#### 1. Open ports
+Shows active listening ports and associated services, identifying what is currently exposed on the system.
+
+![ports](Evidence/Ports.jpeg)
 
 **Breaking down what's exposed:**
 
@@ -145,8 +180,16 @@ cupsd (CUPS) is running on a VM that has no printer. Port 631 being open and mDN
 - '-E' - extend patterns (OR conditions, more flexible matching)
 - '-v' - invert match (exclude results)
 
-**Commands run & output:**
-Pictures
+### **Commands run & output:**
+#### 1. Running Process Overview
+Displays active system processes with resource usage, helping identify what is currently running on the syste.
+
+![Process Overview](Evidence/Process_overview.jpeg)
+
+#### 2. Systemd-resolved & CUPS running processes
+Filters for key services (e.g., DNS and printing), confirming whether critical processes are active and how they are running.
+
+![Specific processes](Evidence/Specific_process.jpeg)
 
 **Process States:**
 | State | Meaning |
@@ -181,8 +224,11 @@ cupsd running as root means any exploits in the CUPS service would immediately g
 | **ls -l** | What files can be accessed | Shows file permissions |
 | **sudo -l** | Commands you can run as root | Reveals privilege escalation paths |
 
-**Commands run & output:**
-Picture (users)
+### **Commands run & output:**
+#### 1. User Account Details
+Shows system user entries from /etc/passwd, including user IDs, group IDs, home directories, and login shells.
+
+![Users](Evidence/Users.jpeg)
 
 **'/etc/passwd' entry breakdown:**
 
@@ -198,8 +244,11 @@ Picture (users)
 
 **Real login-capable accounts found:** only *root* and *deshawn-test* - everything else correctly uses /nologin.
 
-**Commands run & output:**
-Pciture (groups)
+### **Commands run & output:**
+#### 1. Groups & Membership
+Displays system groups and associated users, helping identify privilege levels and group-based access.
+
+![Groups](Evidence/Groups.jpeg)
 
 **Key security groups:**
 | Group | Access Level |
@@ -209,13 +258,19 @@ Pciture (groups)
 | **docker** | Effectively root on some systems | 
 | **wheel** | Root (on some systems) |
 
-**Commands run & output:**
-Picture (sudo access)
+### **Commands run & output:**
+#### 1. Sudo Access
+Reveals user privilege escalation rights and directory permissions, highlighting potential security risks and access control issues.
+
+![Sudo](Evidence/Sudo_perm.jpeg)
 
 sudo -l **result**: (ALL : ALL) ALL - this means deshawn-test can run any command as any user with no restrictions. Most permissive sudo config possible.
 
-**Commands run & output:**
-Pictures (directory permissions)
+### **Commands run & output:**
+#### 1. Directory permissions
+Shows file and directory permission settings, including ownership and access levels for user, group, and others.
+
+![Directory](Evidence/Dir_permissions.jpeg)
 
 **Home directory permissions breakdown:**
 
