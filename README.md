@@ -126,6 +126,8 @@ Pictures
 ### ⚠️Security Relevance
 cupsd (CUPS) is running on a VM that has no printer. Port 631 being open and mDNS broadcasting printer discovery (5353) on all interfaces is an unnecessary attack surface. This is the highest-risk finding in the entire recon - a service with no business reason to exist is running and advertising itself on the network.
 
+---
+
 ## ⚙️Part 4: Processes & Services
 **Purpose:** See what's actually running, who owns it, and confirm findings from the ports section.
 
