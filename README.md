@@ -46,8 +46,15 @@ Tools used: hostnamectl, cat /etc/os-release, uptime, ip a, ip r, cat /etc/resol
 
 This is the highest-risk finding on the system. Two CUPS processes are actively running with no justification - this is a virtual machine with no printers attached.
 
-Picture: (Processes)
-Picture: (Ports)
+#### Systemd-resolved & CUPS running processes
+Filters for key services (e.g., DNS and printing), confirming whether critical processes are active and how they are running.
+
+![Specific processes](Evidence/Specific_process.jpeg)
+
+#### Open ports
+Shows active listening ports and associated services, identifying what is currently exposed on the system.
+
+![ports](Evidence/Ports.jpeg)
 
 **Why this is critical, not just a misconfiguration:**
 
@@ -65,7 +72,10 @@ The attak chain: network-adjacent attacker → mDNS discovery → cups-browsed e
 ## Finding 2 - Unrestricted Sudo Configuration
 **Severity: 🔴 Critical**
 
-Picture: (sudo -l)
+#### Sudo Access
+Reveals user privilege escalation rights and directory permissions, highlighting potential security risks and access control issues.
+
+![Sudo](Evidence/Sudo_perm.jpeg)
 
 '(ALL : ALL) ALL' is the most permissive sudo policy possible. It means 'deshawn-test' can run any command, as any user, on any host - with only a password standing between a normal session and full root access.
 
@@ -83,7 +93,10 @@ The principle of least privilege exists percisely to prevent this. A properly sc
 ## Finding 3 - Recon Intelligence Stored on Target
 **Severity: 🔴 Critical**
 
-Picture: (ls -l)
+#### Directory permissions
+Shows file and directory permission settings, including ownership and access levels for user, group, and others.
+
+![Directory](Evidence/Dir_permissions.jpeg)
 
 A directory named 'knowledge-base' exists in the home directory and contains notes about this system - the exact recon that was just performed. The permissions (drwxrwxr-x) allows any process running under the 'deshawn-test' group to modify its contents.
 
@@ -102,7 +115,10 @@ This is an operational security failure independent of any technical vulnerabili
 ## Finding 4 - mDNS Network Exposure
 **Severity: 🟡 Medium**
 
-Picture: (Ports)
+#### Open ports
+Shows active listening ports and associated services, identifying what is currently exposed on the system.
+
+![ports](Evidence/Ports.jpeg)
 
 The Avahi mDNS daemon is advertising service discovery across the entire network segment. Any host on the subnet can query for and discover services running on this machine. In an isolated lab this is low consequence, but it represents unnecessary network visibility.
 
@@ -116,7 +132,10 @@ In a real environment, mDNS advertisements have been used as an initial reconnai
 ## Finding 5 - Knowledge-base Directory Write Permissions
 **Severity: 🟡 Medium**
 
-Pciture:(file)
+#### Directory permissions
+Shows file and directory permission settings, including ownership and access levels for user, group, and others.
+
+![Directory](Evidence/Dir_permissions.jpeg)
 
 The group write bit ('w' in position 5) means any process running as the 'deshawn-test' group can create, modify, or delete files inside this directory. In the context of a compromise, this enables an attacker to tamper with or plant files in a directory that appears to be a trusted personal notes store.
 
@@ -128,9 +147,15 @@ The group write bit ('w' in position 5) means any process running as the 'deshaw
 ## Supporting Evidence - System Profile
 ### System Identity
 
-Picture: (OS version)
+#### Full system summary
+Quick snapshot of basic system information using Linux commands, including OS version, kernel, hostname, and virtualization details.
 
-Picture: (uptime)
+![Full system summary](Evidence/hostnamectl.jpeg)
+
+#### System uptime
+Displays current system uptime and load averages to give a high-level view of system activity and performance.
+
+![uptime](Evidence/uptime.jpeg)
 
 | Field | Value | Security Relevance |
 | --- | --- | --- |
@@ -141,9 +166,15 @@ Picture: (uptime)
 
 ### Network Configuration
 
-Picture: (IP a)
+#### Interfaces / IP Overview
+Shows active network interfaces, including loopback and primary NIC, with assigned IP addresses and interface states.
 
-Picture: (IP r)
+![ip a](Evidence/ip_a.jpeg)
+
+#### Routing table
+Displays the system's routing configuration, highlighting the default gateway and how outbound traffic is directed
+
+![Routing table](Evidence/ip_r.jpeg)
 
 | Component | Value | Notes |
 | --- | --- | --- |
@@ -152,15 +183,29 @@ Picture: (IP r)
 | Gateway | '10.x.x.1' | pfSense router |
 | IPv6 | Link-local only | Not globally routable |
 
-Picture : (DNS)
+#### Local Stub Resolver
+Shows how the system resolves domain names, including the local DNS stub resolver and configured nameserver
+
+![DNS stub](Evidence/DNS_stub.jpeg)
+
+#### Upstream DNS
+Displays the active DNS servers and resolver configuration, revealing how DNS queries are forwarded upstream.
+
+![Upstream DNS](Evidence/Upstream_DNS.jpeg)
 
 - DNS flows from the local stub resolver through pfSense upstream.
 
 ### User & Privilege Inventory
 
-Picture: (users)
+#### User Account Details
+Shows system user entries from /etc/passwd, including user IDs, group IDs, home directories, and login shells.
 
-Picture: (groups)
+![Users](Evidence/Users.jpeg)
+
+#### Groups & Membership
+Displays system groups and associated users, helping identify privilege levels and group-based access.
+
+![Groups](Evidence/Groups.jpeg)
 
 **Positive finding:** All service accounts use '/nologin' or '/bin/false'  - no unnecessary interactive login capability exists for system daemons. This is correct hardening practice and limits the blast radius of any single service compromise.
 
